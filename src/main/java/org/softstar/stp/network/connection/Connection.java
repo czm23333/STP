@@ -16,14 +16,12 @@ import java.io.PipedOutputStream;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
-import java.util.Random;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 public class Connection implements AutoCloseable {
-    protected static final Random RANDOM = new Random();
-
     protected static final int INITIAL_WINDOW_SIZE = 16;
     protected static final int MIN_WINDOW_SIZE = 4;
     protected static final int MAX_WINDOW_SIZE = 128;
@@ -78,7 +76,7 @@ public class Connection implements AutoCloseable {
     public Connection(DatagramChannel channel, SocketAddress peerAddress, ConnectionState initialState, AbstractPacketEncoder encoder, AbstractPacketDecoder decoder) throws IOException {
         this.packetEncoder = encoder;
         this.packetDecoder = decoder;
-        this.nextSeqNumber = RANDOM.nextLong(1, Integer.MAX_VALUE);
+        this.nextSeqNumber = ThreadLocalRandom.current().nextLong(1, Integer.MAX_VALUE);
         this.state = initialState;
         this.channel = channel;
         this.peerAddress = peerAddress;

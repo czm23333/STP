@@ -8,6 +8,7 @@ import org.softstar.stp.network.packet.Packet;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.channels.DatagramChannel;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class DebuggingConnection extends Connection {
     private static final double DROP_RATE = 0.1;
@@ -17,19 +18,19 @@ public class DebuggingConnection extends Connection {
     private final String name;
 
     public DebuggingConnection(String name, DatagramChannel channel, SocketAddress peerAddress, boolean isServer) throws IOException {
-        super(channel, peerAddress, isServer, new DebuggingEncoder(name, RANDOM, CORRUPT_RATE), new CRC32PacketDecoder());
+        super(channel, peerAddress, isServer, new DebuggingEncoder(name, CORRUPT_RATE), new CRC32PacketDecoder());
         this.name = name;
     }
 
     @Override
     protected void sendPacket(@NotNull Packet packet) {
-        boolean drop = RANDOM.nextDouble() <= DROP_RATE;
+        boolean drop = ThreadLocalRandom.current().nextDouble() <= DROP_RATE;
         if (drop) {
             System.out.printf("[%s] drop packet: %s%n", name, packet);
             return;
         }
 
-        boolean reorder = RANDOM.nextDouble() <= REORDER_RATE;
+        boolean reorder = ThreadLocalRandom.current().nextDouble() <= REORDER_RATE;
         if (reorder) {
             System.out.printf("[%s] reorder packet: %s%n", name, packet);
             sendQueue.offerFirst(packet);

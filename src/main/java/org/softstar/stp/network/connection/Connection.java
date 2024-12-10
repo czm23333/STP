@@ -24,42 +24,42 @@ import java.util.concurrent.TimeUnit;
 public class Connection implements AutoCloseable {
     protected static final Random RANDOM = new Random();
 
-    private static final int INITIAL_WINDOW_SIZE = 16;
-    private static final int MIN_WINDOW_SIZE = 4;
-    private static final int MAX_WINDOW_SIZE = 128;
-    private static final int SEND_QUEUE_SIZE = 1024;
+    protected static final int INITIAL_WINDOW_SIZE = 16;
+    protected static final int MIN_WINDOW_SIZE = 4;
+    protected static final int MAX_WINDOW_SIZE = 128;
+    protected static final int SEND_QUEUE_SIZE = 1024;
 
-    private static final long TICK_LENGTH = 25;
-    private static final long RESEND_TICK = 20;
-    private static final int RESEND_LIMIT = 10;
-    private static final long TIMEOUT_TICK = RESEND_TICK * RESEND_LIMIT * 2;
-    private static final long IDLE_WAIT_TICK = RESEND_TICK * 10;
+    protected static final long TICK_LENGTH = 25;
+    protected static final long RESEND_TICK = 30;
+    protected static final int RESEND_LIMIT = 50;
+    protected static final long TIMEOUT_TICK = RESEND_TICK * RESEND_LIMIT * 2;
+    protected static final long IDLE_WAIT_TICK = RESEND_TICK * 10;
 
-    private static final int DATA_PACKET_SIZE = 16384;
-    private static final int PIPE_SIZE = DATA_PACKET_SIZE * MAX_WINDOW_SIZE * 2;
+    protected static final int DATA_PACKET_SIZE = 16384;
+    protected static final int PIPE_SIZE = DATA_PACKET_SIZE * MAX_WINDOW_SIZE * 2;
 
-    private final PipedInputStream dataSendInputStream = new PipedInputStream(PIPE_SIZE);
-    private final PipedOutputStream dataSendOutputStream;
-    private final PipedOutputStream dataReceiveOutputStream = new PipedOutputStream();
-    private final PipedInputStream dataReceiveInputStream;
-    private final BlockingDeque<Packet> sendQueue = new LinkedBlockingDeque<>(SEND_QUEUE_SIZE);
-    private final CircularArray<DataPacket> sendWindow = new CircularArray<>(MAX_WINDOW_SIZE);
-    private final CircularArray<DataPacket> receiveWindow = new CircularArray<>(MAX_WINDOW_SIZE, MAX_WINDOW_SIZE);
-    private final AbstractPacketDecoder packetDecoder = new CRC32PacketDecoder();
-    private final AbstractPacketEncoder packetEncoder = new CRC32PacketEncoder();
-    private final DatagramChannel channel;
-    private final SocketAddress peerAddress;
-    private volatile ConnectionState state;
-    private long tick = 0;
-    private int windowSize = INITIAL_WINDOW_SIZE;
-    private long nextSeqNumber;
-    private long ackedNum = 0;
-    private long tickMark = 0;
-    private int waitRecord = 0;
-    private long timeoutMark = 0;
-    private volatile boolean finalized = false;
-    private boolean otherFinalized = false;
-    private volatile Exception deadReason = null;
+    protected final PipedInputStream dataSendInputStream = new PipedInputStream(PIPE_SIZE);
+    protected final PipedOutputStream dataSendOutputStream;
+    protected final PipedOutputStream dataReceiveOutputStream = new PipedOutputStream();
+    protected final PipedInputStream dataReceiveInputStream;
+    protected final BlockingDeque<Packet> sendQueue = new LinkedBlockingDeque<>(SEND_QUEUE_SIZE);
+    protected final CircularArray<DataPacket> sendWindow = new CircularArray<>(MAX_WINDOW_SIZE);
+    protected final CircularArray<DataPacket> receiveWindow = new CircularArray<>(MAX_WINDOW_SIZE, MAX_WINDOW_SIZE);
+    protected final AbstractPacketDecoder packetDecoder;
+    protected final AbstractPacketEncoder packetEncoder;
+    protected final DatagramChannel channel;
+    protected final SocketAddress peerAddress;
+    protected volatile ConnectionState state;
+    protected long tick = 0;
+    protected int windowSize = INITIAL_WINDOW_SIZE;
+    protected long nextSeqNumber;
+    protected long ackedNum = 0;
+    protected long tickMark = 0;
+    protected int waitRecord = 0;
+    protected long timeoutMark = 0;
+    protected volatile boolean finalized = false;
+    protected boolean otherFinalized = false;
+    protected volatile Exception deadReason = null;
 
     {
         try {
@@ -75,14 +75,28 @@ public class Connection implements AutoCloseable {
         }
     }
 
-    public Connection(DatagramChannel channel, SocketAddress peerAddress, boolean isServer) throws IOException {
+    public Connection(DatagramChannel channel, SocketAddress peerAddress, ConnectionState initialState, AbstractPacketEncoder encoder, AbstractPacketDecoder decoder) throws IOException {
+        this.packetEncoder = encoder;
+        this.packetDecoder = decoder;
         this.nextSeqNumber = RANDOM.nextLong(1, Integer.MAX_VALUE);
-        this.state = isServer ? ConnectionState.WAIT_SYN : ConnectionState.TO_SEND_SYN;
+        this.state = initialState;
         this.channel = channel;
         this.peerAddress = peerAddress;
         channel.configureBlocking(false);
         new Thread(this::sendLoop).start();
         new Thread(this::loop).start();
+    }
+
+    public Connection(DatagramChannel channel, SocketAddress peerAddress, ConnectionState initialState) throws IOException {
+        this(channel, peerAddress, initialState, new CRC32PacketEncoder(), new CRC32PacketDecoder());
+    }
+
+    public Connection(DatagramChannel channel, SocketAddress peerAddress, boolean isServer) throws IOException {
+        this(channel, peerAddress, isServer ? ConnectionState.WAIT_SYN : ConnectionState.TO_SEND_SYN);
+    }
+
+    public Connection(DatagramChannel channel, SocketAddress peerAddress, boolean isServer, AbstractPacketEncoder encoder, AbstractPacketDecoder decoder) throws IOException {
+        this(channel, peerAddress, isServer ? ConnectionState.WAIT_SYN : ConnectionState.TO_SEND_SYN, encoder, decoder);
     }
 
     @Nullable
@@ -200,7 +214,7 @@ public class Connection implements AutoCloseable {
         }
     }
 
-    private void cleanState() {
+    protected void cleanState() {
         tickMark = tick;
         waitRecord = 0;
     }
@@ -319,7 +333,7 @@ public class Connection implements AutoCloseable {
     }
 
     @SuppressWarnings("BusyWait")
-    private void sendLoop() {
+    protected void sendLoop() {
         while (state != ConnectionState.DEAD) {
             Packet packet;
             try {
@@ -348,7 +362,7 @@ public class Connection implements AutoCloseable {
         }
     }
 
-    private void loop() {
+    protected void loop() {
         while (state != ConnectionState.DEAD) {
             Packet packet = tryRecvPacket();
             if (packet != null) {

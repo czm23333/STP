@@ -54,9 +54,11 @@ public class Main {
             connClient.write(("helloServer" + produceTestString(25565) + "byeServer").getBytes());
             connServer.write(("helloClient" + produceTestString(25565) + "byeClient").getBytes());
             connClient.disconnect();
-            Thread.sleep(10000);
+            Thread.sleep(50000);
             System.out.printf("Client dead %b %s%n", connClient.isDead(), connClient.getDeadReason());
+            if (connClient.getDeadReason() != null) connClient.getDeadReason().printStackTrace();
             System.out.printf("Server dead %b %s%n", connServer.isDead(), connServer.getDeadReason());
+            if (connServer.getDeadReason() != null) connServer.getDeadReason().printStackTrace();
         }
     }
 }

@@ -2,6 +2,10 @@ plugins {
     id 'java'
 }
 
+apply plugin: 'java'
+sourceCompatibility = 1.23
+targetCompatibility = 1.23
+
 group = 'org.softstar'
 version = '1.0-SNAPSHOT'
 
